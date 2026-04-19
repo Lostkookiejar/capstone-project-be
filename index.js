@@ -18,6 +18,7 @@ const pool = new Pool({
   },
 });
 
+//legacy code, testing connection
 app.get("/allreviews", async (req, res) => {
   const client = await pool.connect();
 
@@ -27,6 +28,69 @@ app.get("/allreviews", async (req, res) => {
       res.json(reviews.rows);
     } else {
       res.status(404).json({ error: "No reviews are available" });
+    }
+  } catch (error) {
+    console.error("Error", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+//get reviews of a user
+app.get("/reviews/user/:id", async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+
+  try {
+    const getQuery = await client.query(
+      "SELECT * FROM reviews WHERE user_id = $1",
+      [id],
+    );
+    if (getQuery.rowCount > 0) {
+      res.json(getQuery.rows);
+    } else {
+      res
+        .status(404)
+        .json({ error: "No reviews are available from this user" });
+    }
+  } catch (error) {
+    console.error("Error", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+//create new review for a user
+app.post("/create/review/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, thumbnail, content, created_at, rating, playtime } = req.body;
+  const client = await pool.connect();
+
+  try {
+    const userExists = await client.query(
+      "SELECT user_id FROM reviews WHERE user_id = $1",
+      [id],
+    );
+
+    if (userExists.rows.length > 0) {
+      const createQuery = await client.query(
+        `INSERT INTO reviews (name, thumbnail, content, created_at, rating, playtime, user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+        [name, thumbnail, content, created_at, rating, playtime, id],
+      );
+
+      console.log(`Review created with id ${createQuery.rows[0]}`);
+
+      res.json({
+        status: "success",
+        data: createQuery.rows[0],
+        message: "Review created",
+      });
+    } else {
+      res.status(400).json({ error: "User does not exist" });
     }
   } catch (error) {
     console.error("Error", error.message);
