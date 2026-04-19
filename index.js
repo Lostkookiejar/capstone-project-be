@@ -63,15 +63,15 @@ app.get("/reviews/user/:id", async (req, res) => {
 });
 
 //create new review for a user
-app.post("/create/review/:id", async (req, res) => {
-  const { id } = req.params;
+app.post("/create/review/:user_id", async (req, res) => {
+  const { user_id } = req.params;
   const { name, thumbnail, content, created_at, rating, playtime } = req.body;
   const client = await pool.connect();
 
   try {
     const userExists = await client.query(
       "SELECT user_id FROM reviews WHERE user_id = $1",
-      [id],
+      [user_id],
     );
 
     if (userExists.rows.length > 0) {
@@ -79,7 +79,7 @@ app.post("/create/review/:id", async (req, res) => {
         `INSERT INTO reviews (name, thumbnail, content, created_at, rating, playtime, user_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-        [name, thumbnail, content, created_at, rating, playtime, id],
+        [name, thumbnail, content, created_at, rating, playtime, user_id],
       );
 
       console.log(`Review created with id ${createQuery.rows[0]}`);
@@ -92,6 +92,45 @@ app.post("/create/review/:id", async (req, res) => {
     } else {
       res.status(400).json({ error: "User does not exist" });
     }
+  } catch (error) {
+    console.error("Error", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+//update existing review for a user
+app.put("/update/review/:id", async (req, res) => {
+  const client = await pool.connect();
+  const { id } = req.params;
+  const { content, playtime, rating, thumbnail } = req.body;
+
+  try {
+    const updateQuery = await client.query(
+      `
+      UPDATE reviews SET content = $1, playtime = $2, 
+      rating = $3, thumbnail = $4 WHERE id = $5`,
+      [content, playtime, rating, thumbnail, id],
+    );
+
+    res.json({ status: "success", message: "Review updated." });
+  } catch (error) {
+    console.error("Error", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete("/delete/review/:id", async (req, res) => {
+  const client = await pool.connect();
+  const { id } = req.params;
+
+  try {
+    await client.query(`DELETE FROM reviews WHERE id = $1`, [id]);
+
+    res.json({ status: "success", message: "Review deleted." });
   } catch (error) {
     console.error("Error", error.message);
     res.status(500).json({ error: error.message });
