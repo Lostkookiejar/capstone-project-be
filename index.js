@@ -4,8 +4,10 @@ const cors = require("cors");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { GoogleGenAI } = require("@google/genai");
 require("dotenv").config();
-const { DATABASE_URL, SECRET_KEY } = process.env;
+const ai = require("@google/genai");
+const { DATABASE_URL } = process.env;
 
 let app = express();
 app.use(cors());
@@ -44,7 +46,7 @@ app.get("/reviews/user/:id", async (req, res) => {
 
   try {
     const getQuery = await client.query(
-      "SELECT * FROM reviews WHERE user_id = $1",
+      "SELECT * FROM reviews WHERE user_id = $1 ORDER BY id DESC",
       [id],
     );
     if (getQuery.rowCount > 0) {
@@ -62,6 +64,34 @@ app.get("/reviews/user/:id", async (req, res) => {
   }
 });
 
+//generate a review for your suggested game
+app.get("/generate/review/:gameName", async (req, res) => {
+  const { gameName } = req.params;
+  try {
+    const ai = new GoogleGenAI({});
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Write a 4-sentence game review about ${gameName}, but get one thing factually wrong. Do not use any text formatting or newline escape sequences.`,
+      config: {
+        thinkingConfig: {
+          thinkingLevel: "low",
+        },
+        maxOutputTokens: 1100,
+      },
+    });
+
+    const finishReason = response.candidates[0].finishReason;
+    res.json({
+      review: response.text,
+      finishReason: finishReason,
+      responseTokens: response.usageMetadata.candidatesTokenCount,
+    });
+  } catch (error) {
+    console.error("Error", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 //create new review for a user
 app.post("/create/review/:user_id", async (req, res) => {
   const { user_id } = req.params;
@@ -69,29 +99,16 @@ app.post("/create/review/:user_id", async (req, res) => {
   const client = await pool.connect();
 
   try {
-    const userExists = await client.query(
-      "SELECT user_id FROM reviews WHERE user_id = $1",
-      [user_id],
-    );
-
-    if (userExists.rows.length > 0) {
-      const createQuery = await client.query(
-        `INSERT INTO reviews (name, thumbnail, content, created_at, rating, playtime, user_id)
+    const createQuery = await client.query(
+      `INSERT INTO reviews (name, thumbnail, content, created_at, rating, playtime, user_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-        [name, thumbnail, content, created_at, rating, playtime, user_id],
-      );
+      [name, thumbnail, content, created_at, rating, playtime, user_id],
+    );
 
-      console.log(`Review created with id ${createQuery.rows[0]}`);
+    console.log(`Review created with id ${createQuery.rows[0]}`);
 
-      res.json({
-        status: "success",
-        data: createQuery.rows[0],
-        message: "Review created",
-      });
-    } else {
-      res.status(400).json({ error: "User does not exist" });
-    }
+    res.json(createQuery.rows[0]);
   } catch (error) {
     console.error("Error", error.message);
     res.status(500).json({ error: error.message });
@@ -110,11 +127,11 @@ app.put("/update/review/:id", async (req, res) => {
     const updateQuery = await client.query(
       `
       UPDATE reviews SET content = $1, playtime = $2, 
-      rating = $3, thumbnail = $4 WHERE id = $5`,
+      rating = $3, thumbnail = $4 WHERE id = $5 RETURNING *`,
       [content, playtime, rating, thumbnail, id],
     );
 
-    res.json({ status: "success", message: "Review updated." });
+    res.json(updateQuery.rows[0]);
   } catch (error) {
     console.error("Error", error.message);
     res.status(500).json({ error: error.message });
@@ -128,9 +145,12 @@ app.delete("/delete/review/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    await client.query(`DELETE FROM reviews WHERE id = $1`, [id]);
+    const deleteQuery = await client.query(
+      `DELETE FROM reviews WHERE id = $1 RETURNING id`,
+      [id],
+    );
 
-    res.json({ status: "success", message: "Review deleted." });
+    res.json(deleteQuery.rows[0]);
   } catch (error) {
     console.error("Error", error.message);
     res.status(500).json({ error: error.message });
