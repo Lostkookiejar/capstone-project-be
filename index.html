@@ -8,13 +8,37 @@
     <h2>How to use this API:</h2>
     <ul>
       <li>
-        <strong>WIP :</strong> **placeholder ** Register a new user. The body
-        should be a JSON object containing 'username' and 'password' keys.
+        <strong>GET /allreviews :</strong> Developer only endpoint. Returns a
+        json payload with all entries in the database.
       </li>
       <li>
-        <strong>WIP :</strong> ** placeholder ** Authenticate an existing user.
-        The payload should be a JSON object with 'username' and 'password' keys.
-        This endpoint returns a JWT token when successful.
+        <strong>GET /reviews/user/:id :</strong> Returns a json payload with all
+        reviews of a specific user, ordering it from the most recent to the
+        least. User id should be passed as the paramter. In the frontend, that
+        id is passed from firebase authentication uid.
+      </li>
+      <li>
+        <strong>GET /generate/review/:gameName :</strong> Passes a name of a
+        video game as parameter. Returns a json payload with a Gemini written
+        review of a game that should be slightly wrong.
+      </li>
+      <li>
+        <strong>POST /create/review/:user_id :</strong> Creates a new review
+        with a user id passed as parameter. Request body should be an object
+        with 'name', 'thumbnail', 'content', 'created_at', 'rating' and
+        'playtime' keys. All keys hold string values, except 'rating', which
+        holds an integer value. Returns a payload with the same key-value
+        pairings for immediate frontend state updates.
+      </li>
+      <li>
+        <strong>PUT /update/review/:id :</strong> Updates an existing review.
+        The review's id is passed as a parameter, and the request body should
+        contain an object with 'content', 'playtime', 'rating' and 'thumbnail'
+        keys. The object is then returned as payload.
+      </li>
+      <li>
+        <strong>DELETE /delete/review/:id :</strong> Deletes an existing review.
+        The review's id is passed as a parameter. Returns the review's id.
       </li>
     </ul>
   </body>
