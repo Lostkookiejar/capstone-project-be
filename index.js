@@ -39,6 +39,24 @@ app.get("/allreviews", async (req, res) => {
   }
 });
 
+app.get("/review/image/:review_id", async (req, res) => {
+  const client = await pool.connect();
+  const { review_id } = req.params;
+
+  try {
+    const images = await client.query(
+      "SELECT * FROM images WHERE review_id = $1",
+      [review_id],
+    );
+    res.json(images.rows);
+  } catch (error) {
+    console.error("Error", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
 //get reviews of a user
 app.get("/reviews/user/:id", async (req, res) => {
   const { id } = req.params;
