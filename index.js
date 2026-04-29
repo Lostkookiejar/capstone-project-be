@@ -57,6 +57,24 @@ app.get("/review/image/:review_id", async (req, res) => {
   }
 });
 
+app.delete("/review/image/:image_id", async (req, res) => {
+  const client = await pool.connect();
+  const { image_id } = req.params;
+
+  try {
+    await client.query("DELETE FROM images WHERE id = $1", [image_id]);
+    res.json({
+      status: "success",
+      message: "Reservation deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error: ", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
 //get reviews of a user
 app.get("/reviews/user/:id", async (req, res) => {
   const { id } = req.params;
