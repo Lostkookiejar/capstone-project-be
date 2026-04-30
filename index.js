@@ -75,6 +75,25 @@ app.delete("/review/image/:image_id", async (req, res) => {
   }
 });
 
+app.post("/review/image", async (req, res) => {
+  const client = await pool.connect();
+  const { image, review_id } = req.body;
+
+  try {
+    const response = await client.query(
+      "INSERT INTO images (image, review_id) VALUES ($1, $2) RETURNING *",
+      [image, review_id],
+    );
+
+    res.json(response.rows);
+  } catch (error) {
+    console.error("Error: ", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
 //get reviews of a user
 app.get("/reviews/user/:id", async (req, res) => {
   const { id } = req.params;
