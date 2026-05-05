@@ -94,6 +94,25 @@ app.post("/review/image", async (req, res) => {
   }
 });
 
+app.put("/review/image/:id", async (req, res) => {
+  const client = await pool.connect();
+  const { image } = req.body;
+  const { id } = req.params;
+
+  try {
+    const response = await client.query(
+      "UPDATE images SET image = $1 WHERE id = $2 RETURNING *",
+      [image, id],
+    );
+    res.json(response.rows);
+  } catch (error) {
+    console.error("Error", error.message);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
 //get reviews of a user
 app.get("/reviews/user/:id", async (req, res) => {
   const { id } = req.params;
